@@ -853,7 +853,7 @@ class MengpoScene extends Phaser.Scene {
     this.model.caseResults.push(result);
     this.model.currentResult = result;
     this.model.messages.push(message);
-    this.activeGuestId = id;
+    this.activeGuestId = null;
     this.phase = 'caseResult';
     this.renderScreen();
   }
