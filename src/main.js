@@ -671,17 +671,18 @@ class MengpoScene extends Phaser.Scene {
 
   drawEnding() {
     const ending = this.model.ending;
-    this.text(463, 159, '本日代班紀錄　／　結案', 15, COLORS.plum, { bold: true });
-    this.panel(462, 208, 724, 337, '#f0e6d4', COLORS.gold, 2);
-    this.text(493, 237, ending.seal, 15, COLORS.plum, { bold: true });
-    this.text(493, 279, ending.title, 32, COLORS.ink, { bold: true, width: 650, wordWrap: { width: 650 } });
-    this.text(496, 333, ending.subtitle, 17, COLORS.rose, { bold: true, width: 640 });
-    this.text(496, 374, ending.body, 18, COLORS.ink, {
-      width: 640,
-      wordWrap: { width: 640 },
-      lineSpacing: 7,
+    this.text(463, 150, '本日代班紀錄　／　結案', 15, COLORS.plum, { bold: true });
+    this.panel(462, 184, 724, 390, '#f0e6d4', COLORS.gold, 1);
+    this.text(493, 204, ending.seal, 15, COLORS.plum, { bold: true });
+    this.text(493, 234, ending.title, 32, COLORS.ink, { bold: true, width: 650 });
+    this.text(496, 277, ending.subtitle, 17, COLORS.rose, { bold: true, width: 640 });
+    this.panel(486, 311, 676, 244, COLORS.white, null, 0);
+    this.text(505, 322, '結局小劇場', 13, COLORS.plum, { bold: true });
+    this.text(505, 344, ending.story, 18, COLORS.ink, {
+      width: 638,
+      lineSpacing: 2,
     });
-    this.drawOutcomeSummary(462, 563, 720);
+    this.drawOutcomeSummary(462, 582, 720);
     this.button(463, 647, 358, 45, '再代一次班　↻', () => {
       this.roundNumber += 1;
       this.model = null;
