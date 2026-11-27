@@ -1,0 +1,77 @@
+:root {
+  color-scheme: dark;
+  font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif;
+  background: #171722;
+  color: #f2ead9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  background: #171722;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#game-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(119, 74, 91, 0.22), transparent 48%),
+    #171722;
+}
+
+#game-container {
+  width: min(100%, 1280px);
+  aspect-ratio: 8 / 5;
+  overflow: hidden;
+  border: 1px solid rgba(224, 187, 128, 0.62);
+  background: #171722;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.48);
+}
+
+#game-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+@media (max-width: 780px) {
+  #game-shell {
+    padding: 0;
+    align-items: start;
+  }
+
+  #game-container {
+    width: 100vw;
+    border-inline: 0;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
