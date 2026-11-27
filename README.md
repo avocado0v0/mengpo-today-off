@@ -24,6 +24,19 @@ npm run dev
 - `Esc` 將目前亡者放回待辦清單。
 - 點右上角 `?` 三次可觸發陰間 AI 客服彩蛋；點湯杓 `♨` 五次可觸發隱藏結果。
 
-## 發布
+## 結局平衡檢查
 
-Vite 專案已設定 GitHub Pages 靜態建置流程。推送至 `main` 後，GitHub Actions 會建置並部署 `dist/`。
+```powershell
+node tools/endings-sim.mjs
+```
+
+以不同玩法策略各模擬兩萬局，列出每種結局的出現比例，調整 `src/logic.js` 的結局條件後可用來確認每個結局都還觸發得到。
+
+## 發布到 GitHub Pages
+
+`.github/workflows/deploy.yml` 已設定好。建立 GitHub repository 並把專案推送到 `main` 分支後：
+
+1. 到 repository 的 **Settings → Pages**，把 **Source** 設為 **GitHub Actions**。
+2. 等 Actions 頁面的「Deploy to GitHub Pages」跑完，網址會是 `https://<帳號>.github.io/<repository 名稱>/`。
+
+`vite.config.js` 會在 GitHub Actions 中自動把網址路徑設成 repository 名稱，所以圖片路徑不需要手動調整。`node_modules/` 與 `dist/` 已列入 `.gitignore`，不需要上傳。

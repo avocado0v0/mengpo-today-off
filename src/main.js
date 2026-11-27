@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { RECIPES } from './data.js';
-import { drawShift, PATIENCE_DRAIN_PER_SECOND, resolveEnding } from './logic.js';
+import { ENDINGS, RECIPES } from './data.js';
+import { drawShift, PATIENCE_DRAIN_PER_SECOND, resolveEnding, scoreCase } from './logic.js';
 import './style.css';
 
 const WIDTH = 1280;
@@ -20,6 +20,59 @@ const COLORS = {
   gray: '#77747b',
   line: '#c8bda8',
 };
+
+const ART = Object.fromEntries(Array.from({ length: 17 }, (_, index) => {
+  const number = String(index + 1).padStart(2, '0');
+  return [`art${number}`, `${import.meta.env.BASE_URL}art/${number}.webp`];
+}));
+ART.scene01 = `${import.meta.env.BASE_URL}art/scene01.webp`;
+ART.scene02 = `${import.meta.env.BASE_URL}art/scene02.webp`;
+ART.scene03 = `${import.meta.env.BASE_URL}art/scene03.webp`;
+const GUEST_ART = {
+  refuser: 'art07',
+  notice: 'art08',
+  memory: 'art09',
+  auditor: 'art10',
+};
+
+const CLOSING_PUNCTUATION = new Set(Array.from('，。；：！？、）」』】》〉〕〗〙〛〉’”％…'));
+
+function glyphWidth(character, fontSize, bold = false) {
+  const codePoint = character.codePointAt(0);
+  const isWide = /[\u1100-\u11ff\u2e80-\ua4cf\uac00-\ud7af\uf900-\ufaff\ufe10-\ufe6f\uff01-\uff60\uffe0-\uffe6]/u.test(character)
+    || codePoint > 0x1f000;
+  const scale = isWide ? 1 : /\s/u.test(character) ? 0.36 : 0.58;
+  return fontSize * scale * (bold ? 1.035 : 1);
+}
+
+function wrapCanvasText(content, maxWidth, fontSize, bold = false) {
+  if (!maxWidth || maxWidth <= 0) return String(content);
+  const lines = [];
+
+  for (const paragraph of String(content).split('\n')) {
+    if (paragraph === '') {
+      lines.push('');
+      continue;
+    }
+
+    let line = '';
+    let lineWidth = 0;
+    for (const character of Array.from(paragraph)) {
+      const width = glyphWidth(character, fontSize, bold);
+      if (line && lineWidth + width > maxWidth && !CLOSING_PUNCTUATION.has(character)) {
+        lines.push(line.trimEnd());
+        line = character.trimStart();
+        lineWidth = glyphWidth(line, fontSize, bold);
+      } else {
+        line += character;
+        lineWidth += width;
+      }
+    }
+    if (line) lines.push(line.trimEnd());
+  }
+
+  return lines.join('\n');
+}
 
 const INTRO = [
   {
@@ -136,10 +189,18 @@ class MengpoScene extends Phaser.Scene {
     this.faqClicks = 0;
     this.potClicks = 0;
     this.toast = null;
+    this.unlockedEndings = new Set();
+    this.galleryReturnPhase = 'title';
+    this.selectedEndingId = null;
+  }
+
+  preload() {
+    Object.entries(ART).forEach(([key, url]) => this.load.image(key, url));
   }
 
   create() {
     this.cameras.main.setBackgroundColor(COLORS.night);
+    this.unlockedEndings = this.readUnlockedEndings();
     this.input.keyboard.on('keydown', (event) => this.handleKey(event));
     this.scale.on('resize', () => this.renderScreen());
     this.renderScreen();
@@ -184,6 +245,15 @@ class MengpoScene extends Phaser.Scene {
       this.advanceTutorial();
       return;
     }
+    if (this.phase === 'galleryDetail' && event.code === 'Escape') {
+      this.phase = 'gallery';
+      this.renderScreen();
+      return;
+    }
+    if (this.phase === 'gallery' && event.code === 'Escape') {
+      this.closeGallery();
+      return;
+    }
     if ((event.code === 'Enter' || event.code === 'Space') && this.enterCallback) {
       this.enterCallback();
       return;
@@ -192,9 +262,7 @@ class MengpoScene extends Phaser.Scene {
     const shortcut = String(event.key).toLowerCase();
     this.choiceCallbacks[shortcut]?.();
     if (event.code === 'Escape' && ['recipe', 'response'].includes(this.phase)) {
-      this.activeGuestId = null;
-      this.phase = 'queue';
-      this.renderScreen();
+      this.returnToQueue();
     }
   }
 
@@ -210,7 +278,16 @@ class MengpoScene extends Phaser.Scene {
       this.renderScreen();
       return;
     }
-    this.model = {
+    this.tutorialIndex = 0;
+    this.model = this.createShiftModel();
+    this.activeGuestId = null;
+    this.timerStarted = false;
+    this.phase = 'tutorial';
+    this.renderScreen();
+  }
+
+  createShiftModel() {
+    return {
       guests: drawShift(),
       complaints: 0,
       timeouts: 0,
@@ -222,10 +299,68 @@ class MengpoScene extends Phaser.Scene {
       flags: {},
       eggs: { selfSoup: false, faq: false },
     };
+  }
+
+  startShift() {
+    this.model = this.createShiftModel();
     this.activeGuestId = null;
+    this.timerStarted = true;
+    this.phase = 'queue';
+    this.renderScreen();
+  }
+
+  startFromTitle() {
+    if (this.storySeen()) {
+      this.startShift();
+      return;
+    }
+    this.startIntro();
+  }
+
+  storySeen() {
+    try {
+      return localStorage.getItem('mengpo-story-seen') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  readUnlockedEndings() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('mengpo-unlocked-endings') || '[]');
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  unlockEnding(ending) {
+    const match = Object.entries(ENDINGS).find(([, entry]) => entry === ending);
+    if (!match) return;
+    this.unlockedEndings.add(match[0]);
+    try {
+      localStorage.setItem('mengpo-unlocked-endings', JSON.stringify([...this.unlockedEndings]));
+    } catch {
+      // The current run still records its ending when persistent storage is unavailable.
+    }
+  }
+
+  revealEnding() {
+    this.model.ending = resolveEnding(this.model);
+    this.unlockEnding(this.model.ending);
+    this.phase = 'ending';
     this.timerStarted = false;
-    this.tutorialIndex = 0;
-    this.phase = 'tutorial';
+    this.renderScreen();
+  }
+
+  openGallery(returnPhase = this.phase) {
+    this.galleryReturnPhase = returnPhase;
+    this.phase = 'gallery';
+    this.renderScreen();
+  }
+
+  closeGallery() {
+    this.phase = this.galleryReturnPhase;
     this.renderScreen();
   }
 
@@ -234,6 +369,11 @@ class MengpoScene extends Phaser.Scene {
       this.tutorialIndex += 1;
       this.renderScreen();
       return;
+    }
+    try {
+      localStorage.setItem('mengpo-story-seen', 'true');
+    } catch {
+      // Keep the current session usable even when browser storage is disabled.
     }
     this.timerStarted = true;
     this.phase = 'queue';
@@ -253,6 +393,8 @@ class MengpoScene extends Phaser.Scene {
     if (this.phase === 'title') return this.drawTitle();
     if (this.phase === 'intro') return this.drawIntro();
     if (this.phase === 'tutorial') return this.drawTutorial();
+    if (this.phase === 'gallery') return this.drawGallery();
+    if (this.phase === 'galleryDetail') return this.drawGalleryDetail();
 
     this.drawWorkroom();
     if (this.phase === 'queue') this.drawQueue();
@@ -274,16 +416,83 @@ class MengpoScene extends Phaser.Scene {
     this.panel(166, 385, 524, 106, '#e7dcc7', '#c4b59c', 1);
     this.text(192, 404, '本日工作內容', 16, COLORS.plum, { bold: true });
     this.text(192, 438, '挑配方　・　回應亡者　・　保住飯碗', 22, COLORS.ink, { bold: true });
-    this.drawIntroIllustration('bridge');
+    this.drawArtFrame(786, 176, 380, 252, 'art01', 350, 218);
+    this.drawArtFrame(856, 444, 240, 210, 'art04', 174, 174);
     this.text(870, 665, '奈何橋頭　·　地府臨時人員', 16, COLORS.gray, { align: 'center', width: 270 });
-    this.button(164, 545, 380, 66, '開始代班　→', () => this.startIntro(), {
+    this.button(164, 545, 380, 66, '開始代班　→', () => this.startFromTitle(), {
       fill: COLORS.plum,
       textColor: COLORS.white,
       size: 24,
       key: 'Enter',
     });
-    this.text(164, 636, '建議使用滑鼠；鍵盤 Enter 也可以繼續。', 15, COLORS.gray);
+    this.button(164, 625, 300, 48, `結局圖鑑　${this.unlockedEndings.size} / ${Object.keys(ENDINGS).length}`, () => this.openGallery('title'), {
+      fill: '#e4d8c1', textColor: COLORS.plum, size: 17, key: 'g',
+    });
+    this.text(484, 641, '已看過開場後，新一局會直接開始。', 14, COLORS.gray, { width: 280 });
     this.text(1110, 745, 'V 0.1　陰曹臨時版', 12, '#c2b59c', { align: 'right', width: 200 });
+  }
+
+  drawGallery() {
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
+    this.drawBackdropSymbols();
+    this.panel(52, 40, 1176, 720, COLORS.paper, null, 0);
+    this.add.rectangle(82, 72, 8, 50, this.toNumber(COLORS.rose)).setOrigin(0, 0);
+    this.text(108, 72, '地府檔案室　／　已解鎖的去向', 16, COLORS.plum, { bold: true });
+    this.text(108, 108, '結局圖鑑', 38, COLORS.ink, { bold: true });
+    this.text(110, 160, `已解鎖 ${this.unlockedEndings.size} / ${Object.keys(ENDINGS).length} 個結局　·　選擇已解鎖項目可閱讀小劇場`, 17, COLORS.gray, { width: 1000 });
+
+    Object.entries(ENDINGS).forEach(([id, ending], index) => {
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      const x = 90 + column * 370;
+      const y = 214 + row * 78;
+      const unlocked = this.unlockedEndings.has(id);
+      const label = `${unlocked ? '已解鎖　✦' : '尚未解鎖　·'}　${ending.title}`;
+      this.button(x, y, 350, 64, label, () => {
+        if (!unlocked) {
+          this.setToast('這個結局還沒有登錄到地府檔案室。');
+          return;
+        }
+        this.selectedEndingId = id;
+        this.phase = 'galleryDetail';
+        this.renderScreen();
+      }, {
+        fill: unlocked ? COLORS.white : '#e9e3d7',
+        textColor: unlocked ? COLORS.ink : '#88838a',
+        stroke: unlocked ? '#c8bda8' : '#ded6c7',
+        size: 15,
+      });
+    });
+
+    this.button(90, 650, 290, 54, '返回　→', () => this.closeGallery(), {
+      fill: COLORS.plum, textColor: COLORS.white, size: 18, key: 'Enter',
+    });
+    this.text(404, 668, '按 Esc 返回上一頁', 14, COLORS.gray);
+  }
+
+  drawGalleryDetail() {
+    const ending = ENDINGS[this.selectedEndingId];
+    if (!ending || !this.unlockedEndings.has(this.selectedEndingId)) {
+      this.phase = 'gallery';
+      return this.drawGallery();
+    }
+
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
+    this.drawBackdropSymbols();
+    this.panel(52, 40, 1176, 720, COLORS.paper, null, 0);
+    this.text(108, 72, `結局圖鑑　／　${ending.seal}`, 16, COLORS.plum, { bold: true });
+    this.text(108, 119, ending.title, 42, COLORS.ink, { bold: true, width: 1040 });
+    this.text(110, 177, ending.subtitle, 20, COLORS.rose, { bold: true, width: 1000 });
+    this.panel(108, 228, 1064, 390, COLORS.white, null, 0);
+    this.text(144, 254, '結局小劇場', 15, COLORS.plum, { bold: true });
+    this.text(144, 292, ending.story, 22, COLORS.ink, {
+      width: 990,
+      lineSpacing: 5,
+    });
+    this.button(108, 652, 330, 56, '回到結局圖鑑　→', () => {
+      this.phase = 'gallery';
+      this.renderScreen();
+    }, { fill: COLORS.plum, textColor: COLORS.white, size: 18, key: 'Enter' });
   }
 
   drawIntro() {
@@ -318,150 +527,55 @@ class MengpoScene extends Phaser.Scene {
   }
 
   drawIntroIllustration(kind) {
-    const centerX = 976;
-    const centerY = 370;
-    const c = (x, y, radius, color, alpha = 1) => this.add.circle(x, y, radius, this.toNumber(color), alpha);
-    const r = (x, y, width, height, color, angle = 0) => this.add.rectangle(x, y, width, height, this.toNumber(color)).setAngle(angle);
-    const p = (points, color) => {
-      const graphics = this.add.graphics();
-      graphics.fillStyle(this.toNumber(color), 1);
-      graphics.fillPoints(points.map(([x, y]) => ({ x, y })), true);
+    const panel = { x: 802, y: 158, width: 348, height: 446 };
+    const portrait = (key, width = 286, height = 286) => {
+      this.drawArtFrame(panel.x, panel.y, panel.width, panel.height, key, width, height);
     };
+    const scene = ({ bridge: 'scene01', note: 'scene02', roster: 'scene03' })[kind];
+    if (scene) {
+      portrait(scene, 328, 414);
+      return;
+    }
 
-    // Cut-paper sun and cloud shapes are reused as a quiet frame across every story beat.
-    c(1082, 206, 68, '#d6c5aa');
-    c(1082, 206, 48, '#e8d5b2');
-    c(858, 550, 44, '#d5cbb8');
-    c(1126, 556, 54, '#d8cbb5');
-    r(976, 570, 280, 34, '#c6b9a1', -2);
-
-    if (kind === 'bridge' || kind === 'firstGuest') {
-      p([[806, 426], [877, 335], [951, 405], [1022, 325], [1146, 427]], '#b5a993');
-      p([[786, 448], [1165, 448], [1165, 494], [786, 494]], '#9a9b89');
-      for (let i = 0; i < 6; i += 1) r(828 + i * 58, 464, 48, 8, '#d8c5a7', -2);
-      // Lantern, loose sign, steam and the unattended soup counter.
-      r(850, 278, 10, 102, '#705b61');
-      r(850, 257, 68, 56, '#a99586', -3);
-      r(850, 257, 4, 67, '#d4c09d', -3);
-      r(850, 257, 68, 4, '#d4c09d', -3);
-      const lanternGlow = c(850, 285, 22, '#b4b997', 0.42);
-      this.tweens.add({ targets: lanternGlow, alpha: 0.15, duration: 720, yoyo: true, repeat: -1 });
-      r(933, 350, 88, 45, '#c8b89e', -5);
-      r(933, 350, 79, 37, '#f2ead9', -5);
-      this.text(892, 338, '營業中', 13, COLORS.plum, { bold: true, width: 82, align: 'center' }).setAngle(-5);
-      r(1094, 413, 104, 18, '#8a6a66', -1);
-      r(1094, 374, 20, 63, '#8a6a66');
-      c(1095, 373, 45, '#a98776');
-      c(1095, 366, 37, '#c6aa8b');
-      r(1095, 343, 75, 9, '#947970');
-      c(1077, 337, 14, '#f0e4cd');
-      c(1105, 326, 10, '#f0e4cd');
-      if (kind === 'firstGuest') {
-        c(1001, 391, 27, '#eee3cb');
-        r(1001, 436, 46, 46, '#eee3cb');
-        c(991, 386, 3, '#62535b');
-        c(1011, 386, 3, '#62535b');
-        p([[970, 413], [938, 395], [939, 389], [978, 404]], '#eee3cb');
-        p([[1024, 413], [1058, 394], [1061, 401], [1031, 425]], '#eee3cb');
-        r(1000, 460, 44, 11, '#c39086');
-      }
-    } else if (kind === 'note') {
-      r(976, 368, 206, 286, '#c9bca5', -2);
-      r(972, 362, 206, 286, '#f8f0df', -2);
-      c(973, 227, 13, COLORS.rose);
-      for (let i = 0; i < 7; i += 1) r(971, 282 + i * 35, i === 0 ? 134 : 154, 5, i === 0 ? '#8b6a70' : '#d7cbb6', -2);
-      c(1032, 551, 35, '#c6b99f');
-      c(1032, 551, 26, '#a3ad91');
-      c(1090, 551, 35, '#c6b99f');
-      c(1090, 551, 26, '#a3ad91');
-    } else if (kind === 'roster') {
-      for (let i = 0; i < 3; i += 1) {
-        r(950 + i * 34, 353 - i * 10, 192, 254, ['#d8ccb6', '#e7dcc7', '#f8f0df'][i], (i - 1) * 3);
-        for (let j = 0; j < 4; j += 1) r(945 + i * 34, 276 + j * 35 - i * 10, 106, 5, '#c3b59f', (i - 1) * 3);
-      }
-      c(1046, 466, 45, '#b8c0b2');
-      c(1046, 466, 30, '#859485');
-      this.drawGhostStamp(1046, 455, 36);
-    } else if (kind === 'king' || kind === 'kingPhone' || kind === 'kingLook' || kind === 'review') {
-      this.drawKingFigure(centerX, centerY + 18, ['king', 'kingPhone', 'review'].includes(kind) ? 'phone' : kind);
-      if (kind === 'review') {
-        r(1070, 500, 132, 190, '#61565f', -5);
-        r(1070, 500, 116, 166, '#f3e9d7', -5);
-        c(1110, 474, 30, '#b77779');
-        r(1110, 472, 38, 5, '#fff4e5');
-      }
+    if (kind === 'king' || kind === 'kingPhone' || kind === 'kingLook') {
+      portrait('art05', 286, 286);
     } else if (kind === 'bull') {
-      this.drawKingFigure(883, 374, 'look');
-      this.drawBullFigure(1087, 420, true);
-      c(1087, 238, 22, '#e9d8bc');
-      this.text(1076, 222, '？', 23, COLORS.plum, { bold: true, width: 24, align: 'center' });
-    } else if (kind === 'apron' || kind === 'apronHero') {
-      this.drawKingFigure(864, 391, 'look');
-      this.drawBullFigure(1098, 414, false);
-      this.drawSubstituteFigure(1078, 449);
+      const cardY = panel.y + 88;
+      this.drawArtFrame(panel.x + 8, cardY, 158, 270, 'art05', 154, 154);
+      this.drawArtFrame(panel.x + 182, cardY, 158, 270, 'art06', 154, 154);
+      this.text(panel.x + 54, cardY + 224, '閻王', 14, COLORS.plum, { bold: true, width: 70, align: 'center' });
+      this.text(panel.x + 228, cardY + 224, '牛頭', 14, COLORS.plum, { bold: true, width: 70, align: 'center' });
+    } else if (kind === 'apron') {
+      const roles = [
+        ['art05', '閻王'],
+        ['art06', '牛頭'],
+        ['art04', '代班孟婆'],
+      ];
+      roles.forEach(([key, label], index) => {
+        const x = panel.x + 6 + index * 114;
+        const y = panel.y + 96;
+        this.drawArtFrame(x, y, 108, 250, key, 112, 112);
+        this.text(x + 8, y + 212, label, 12, COLORS.plum, { bold: true, width: 92, align: 'center' });
+      });
+    } else if (kind === 'apronHero') {
+      portrait('art04', 286, 286);
     } else if (kind === 'rules') {
-      for (let i = 0; i < 3; i += 1) {
-        const y = 270 + i * 120;
-        r(981, y, 246, 82, ['#eee1c9', '#e5dac5', '#ead9c7'][i], i % 2 ? 2 : -2);
-        c(899, y, 27, ['#b0b49d', '#c9a879', '#b98984'][i]);
-        this.text(887, y - 16, `${i + 1}`, 22, COLORS.white, { bold: true, width: 24, align: 'center' });
-        r(990, y - 14, 128, 5, '#b8aa94', -2);
-        r(990, y + 5, 174, 5, '#d0c4b0', 1);
-        r(990, y + 23, 148, 5, '#d0c4b0', -1);
-      }
+      portrait(this.introIndex === 9 ? 'art14' : 'art13', 286, 286);
+    } else if (kind === 'review') {
+      portrait('art17', 286, 286);
+    } else if (kind === 'firstGuest') {
+      portrait('art07', 286, 286);
     }
   }
 
-  drawKingFigure(x, y, pose = 'look') {
-    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
-    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
-    r(x, y + 100, 184, 170, '#8c6b78');
-    r(x, y + 66, 130, 88, '#d4bd9e');
-    c(x, y - 18, 77, '#cfaa91');
-    c(x, y - 31, 76, '#51444e');
-    c(x, y - 8, 56, '#cfaa91');
-    r(x, y - 73, 126, 25, '#51444e');
-    r(x - 43, y - 95, 13, 28, '#c3a578', -9);
-    r(x, y - 101, 13, 32, '#c3a578');
-    r(x + 43, y - 95, 13, 28, '#c3a578', 9);
-    c(x - 21, y - 7, 5, '#53464d');
-    c(x + 21, y - 7, 5, '#53464d');
-    r(x, y + 13, 23, 4, '#9b6b70');
-    if (pose === 'phone' || pose === 'review' || pose === 'kingPhone') {
-      r(x + 83, y + 51, 44, 72, '#69616a', -8);
-      r(x + 84, y + 49, 34, 58, '#e8dfce', -8);
-      c(x + 88, y + 88, 5, '#bd777c');
-    }
+  drawArt(key, x, y, width, height, alpha = 1) {
+    if (!this.textures.exists(key)) return null;
+    return this.add.image(x, y, key).setOrigin(0.5).setDisplaySize(width, height).setAlpha(alpha);
   }
 
-  drawBullFigure(x, y, handRaised = false) {
-    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
-    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
-    r(x, y + 96, 136, 150, '#879284');
-    c(x, y - 2, 70, '#b5aa91');
-    c(x, y - 17, 62, '#cfc1a5');
-    this.add.ellipse(x - 57, y - 60, 52, 28, this.toNumber('#ded0b5')).setAngle(-32);
-    this.add.ellipse(x + 57, y - 60, 52, 28, this.toNumber('#ded0b5')).setAngle(32);
-    c(x - 20, y - 14, 5, '#564b4e');
-    c(x + 20, y - 14, 5, '#564b4e');
-    this.add.ellipse(x, y + 14, 32, 20, this.toNumber('#9c857c'));
-    if (handRaised) r(x + 72, y + 16, 28, 95, '#879284', -31);
-  }
-
-  drawSubstituteFigure(x, y) {
-    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
-    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
-    r(x, y + 66, 150, 178, '#a98982');
-    c(x, y - 28, 70, '#d8b69b');
-    r(x, y - 83, 119, 34, '#574d59');
-    c(x - 19, y - 20, 5, '#574d59');
-    c(x + 19, y - 20, 5, '#574d59');
-    r(x, y + 79, 112, 101, '#c88f9a', -1);
-    // Oversized pale apron panel and a tiny “today Meng Po” badge.
-    r(x, y + 71, 84, 82, '#f0d7d1');
-    this.text(x - 34, y + 56, '今日\n孟婆', 15, '#785665', { bold: true, width: 70, align: 'center', lineSpacing: 1 });
-    r(x - 75, y + 60, 29, 91, '#d8b69b', -19);
-    r(x + 75, y + 60, 29, 91, '#d8b69b', 19);
+  drawArtFrame(x, y, width, height, key, artWidth, artHeight) {
+    this.panel(x, y, width, height, '#f5eee0', '#d4c7b2', 1);
+    return this.drawArt(key, x + width / 2, y + height / 2, artWidth, artHeight);
   }
 
   drawTutorial() {
@@ -529,8 +643,13 @@ class MengpoScene extends Phaser.Scene {
       const isActive = guest.id === this.activeGuestId;
       const fill = guest.status === 'served' ? '#d7d0c2' : isActive ? '#f6e8c8' : COLORS.white;
       this.panel(x, y, w, h, fill, isActive ? COLORS.gold : '#c4b59c', isActive ? 2 : 1);
-      this.add.circle(x + 29, y + 28, 19, guest.isSpecial ? 0x6c486d : 0xead8b8);
-      this.text(x + 17, y + 14, guest.icon, 19, guest.isSpecial ? COLORS.white : COLORS.plum, { width: 25, align: 'center' });
+      const portraitKey = GUEST_ART[guest.id];
+      this.add.circle(x + 29, y + 28, 22, guest.isSpecial ? 0x6c486d : 0xead8b8);
+      if (portraitKey) {
+        this.drawArt(portraitKey, x + 29, y + 28, 48, 48);
+      } else {
+        this.text(x + 17, y + 14, guest.icon, 19, guest.isSpecial ? COLORS.white : COLORS.plum, { width: 25, align: 'center' });
+      }
       this.text(x + 57, y + 9, guest.name, 16, COLORS.ink, { bold: true, width: 250 });
       const status = guest.status === 'served' ? '已完成' : isActive ? '處理中' : guest.timedOut ? '等待中 · 已投訴' : guest.role;
       this.text(x + 57, y + 32, status, 12, guest.status === 'served' ? COLORS.gray : COLORS.plum, { width: 250 });
@@ -568,12 +687,9 @@ class MengpoScene extends Phaser.Scene {
     if (remaining === 0) {
       this.text(464, 211, '投訴箱已經封存。現在來看看今天的地府評語。', 17, COLORS.gray);
       this.drawOutcomeSummary(462, 272, 720);
-      this.button(463, 590, 360, 58, '揭曉今日結局　→', () => {
-        this.model.ending = resolveEnding(this.model);
-        this.phase = 'ending';
-        this.timerStarted = false;
-        this.renderScreen();
-      }, { fill: COLORS.plum, textColor: COLORS.white, size: 20, key: 'Enter' });
+      this.button(463, 590, 360, 58, '揭曉今日結局　→', () => this.revealEnding(), {
+        fill: COLORS.plum, textColor: COLORS.white, size: 20, key: 'Enter',
+      });
       return;
     }
 
@@ -583,6 +699,9 @@ class MengpoScene extends Phaser.Scene {
     this.text(490, 324, '找線索　→　選配方　→　選回應　→　看結果', 20, COLORS.ink, { bold: true });
     this.text(464, 422, `目前投訴：${this.model.complaints}　　已完成：${this.model.caseResults.length} / 3`, 17, COLORS.ink, { bold: true });
     this.drawOutcomeSummary(464, 474, 720);
+    this.panel(914, 550, 250, 128, '#f0e6d4', '#d5c6ac', 1);
+    this.text(934, 562, '三位亡者候位中', 13, COLORS.plum, { bold: true });
+    this.drawArt('art11', 1039, 622, 210, 102);
   }
 
   drawRecipe() {
@@ -596,6 +715,9 @@ class MengpoScene extends Phaser.Scene {
     this.panel(462, 369, 724, 70, '#e6efea', '#b4cabe', 1);
     this.text(486, 390, `線索　${guest.clue}`, 15, '#355b49', { width: 670, wordWrap: { width: 670 } });
     this.text(464, 466, '挑一款湯　／　鍵盤 1–3 也可以選', 18, COLORS.ink, { bold: true });
+    this.panel(1080, 418, 104, 82, '#f0e6d4', '#d5c6ac', 1);
+    this.text(1090, 423, '湯鍋', 11, COLORS.gray);
+    this.drawArt('art12', 1132, 463, 68, 68);
 
     RECIPES.forEach((recipe, index) => {
       const x = 462 + index * 245;
@@ -623,6 +745,8 @@ class MengpoScene extends Phaser.Scene {
     this.panel(462, 222, 724, 88, '#f0e6d4', '#d5c6ac', 1);
     this.text(486, 238, '你端上了', 13, COLORS.gray);
     this.text(486, 262, `${recipe.icon}　${recipe.name}`, 22, COLORS.ink, { bold: true });
+    this.panel(1082, 230, 92, 80, '#fbf7ec', '#d5c6ac', 1);
+    this.drawArt('art17', 1128, 270, 74, 74);
     this.text(462, 337, '亡者看著你，等你回話。', 18, COLORS.plum, { bold: true });
 
     guest.replies.forEach((reply, index) => {
@@ -650,22 +774,24 @@ class MengpoScene extends Phaser.Scene {
     if (!result) return;
     this.text(462, 159, result.heading, 27, COLORS.ink, { bold: true });
     this.panel(462, 220, 724, 223, result.recipeCorrect && result.replyCorrect ? '#e6efea' : '#f4e6d8', '#d5c6ac', 1);
-    this.text(493, 250, result.guest.icon, 46, COLORS.plum, { bold: true });
+    const portraitKey = GUEST_ART[result.guest.id];
+    if (portraitKey) {
+      this.drawArtFrame(1031, 244, 136, 176, portraitKey, 122, 122);
+    }
+    else this.text(493, 250, result.guest.icon, 46, COLORS.plum, { bold: true });
     this.text(560, 246, result.guest.name, 20, COLORS.ink, { bold: true });
-    this.text(560, 283, result.message, 18, COLORS.ink, { width: 575, wordWrap: { width: 575 }, lineSpacing: 6 });
+    this.text(560, 283, result.message, 18, COLORS.ink, { width: portraitKey ? 420 : 575, wordWrap: { width: portraitKey ? 420 : 575 }, lineSpacing: 6 });
     this.text(493, 377, `配方：${result.recipeName}　·　${result.recipeCorrect ? '線索吻合' : '意外發展'}`, 14, COLORS.gray);
     this.text(493, 402, `投訴箱：${this.model.complaints}　·　其他亡者仍在等待`, 14, this.model.complaints ? COLORS.red : COLORS.mint);
     this.drawOutcomeSummary(462, 473, 720);
     const allDone = this.model.guests.every((guest) => guest.status === 'served');
     this.button(463, 607, 360, 56, allDone ? '查看今日結局　→' : '回到待辦清單　→', () => {
       if (allDone) {
-        this.model.ending = resolveEnding(this.model);
-        this.phase = 'ending';
-        this.timerStarted = false;
+        this.revealEnding();
       } else {
         this.phase = 'queue';
+        this.renderScreen();
       }
-      this.renderScreen();
     }, { fill: COLORS.plum, textColor: COLORS.white, size: 19, key: 'Enter' });
   }
 
@@ -674,8 +800,9 @@ class MengpoScene extends Phaser.Scene {
     this.text(463, 150, '本日代班紀錄　／　結案', 15, COLORS.plum, { bold: true });
     this.panel(462, 184, 724, 390, '#f0e6d4', COLORS.gold, 1);
     this.text(493, 204, ending.seal, 15, COLORS.plum, { bold: true });
-    this.text(493, 234, ending.title, 32, COLORS.ink, { bold: true, width: 650 });
-    this.text(496, 277, ending.subtitle, 17, COLORS.rose, { bold: true, width: 640 });
+    this.text(493, 234, ending.title, 32, COLORS.ink, { bold: true, width: 500 });
+    this.text(496, 277, ending.subtitle, 17, COLORS.rose, { bold: true, width: 500 });
+    this.drawArtFrame(1075, 197, 96, 106, 'art16', 78, 78);
     this.panel(486, 311, 676, 244, COLORS.white, null, 0);
     this.text(505, 322, '結局小劇場', 13, COLORS.plum, { bold: true });
     this.text(505, 344, ending.story, 18, COLORS.ink, {
@@ -685,11 +812,11 @@ class MengpoScene extends Phaser.Scene {
     this.drawOutcomeSummary(462, 582, 720);
     this.button(463, 647, 358, 45, '再代一次班　↻', () => {
       this.roundNumber += 1;
-      this.model = null;
-      this.timerStarted = false;
-      this.phase = 'title';
-      this.renderScreen();
+      this.startShift();
     }, { fill: COLORS.plum, textColor: COLORS.white, size: 18, key: 'Enter' });
+    this.button(840, 647, 346, 45, '結局圖鑑　✦', () => this.openGallery('ending'), {
+      fill: '#e4d8c1', textColor: COLORS.plum, size: 18, key: 'g',
+    });
   }
 
   drawOutcomeSummary(x, y, width) {
@@ -757,12 +884,17 @@ class MengpoScene extends Phaser.Scene {
   }
 
   text(x, y, content, size = 16, color = COLORS.ink, extra = {}) {
-    return this.add.text(x, y, content, {
+    const { wordWrap, ...config } = extra;
+    const maxWidth = wordWrap?.width ?? extra.width;
+    const safeContent = maxWidth
+      ? wrapCanvasText(content, maxWidth, size, extra.bold)
+      : content;
+    return this.add.text(x, y, safeContent, {
       fontFamily: FONT,
       fontSize: size,
       color,
       lineSpacing: 2,
-      ...extra,
+      ...config,
     });
   }
 
@@ -815,21 +947,8 @@ class MengpoScene extends Phaser.Scene {
     const recipeCorrect = recipe.id === guest.idealRecipe;
     const replyCorrect = reply.tone === guest.bestTone;
     const timedOut = guest.timedOut;
-    const allWrong = !recipeCorrect && !replyCorrect;
 
-    if (recipeCorrect) this.model.bestRecipes = (this.model.bestRecipes ?? 0) + 1;
-    else this.model.recipeMistakes += 1;
-    if (replyCorrect) this.model.goodReplies += 1;
-    if (recipe.id === 'forget') this.model.cheapRecipes += 1;
-    if (allWrong) this.model.complaints += 1;
-
-    if (guest.id === 'refuser' && reply.tone === 'gentle') this.model.flags.strikeSupport = true;
-    if (guest.id === 'notice' && (!recipeCorrect || reply.tone === 'silly')) this.model.flags.noticeUnclear = true;
-    if (guest.id === 'auditor' && recipeCorrect && replyCorrect) this.model.flags.auditPassed = true;
-    if (guest.id === 'memory' && recipe.id === 'keep') this.model.flags.subscriptionContinued = true;
-    if (guest.id === 'meeting' && reply.tone === 'silly') this.model.flags.meetingLinkLeaked = true;
-    if (guest.id === 'unsubscribe' && reply.tone === 'formal' && recipe.id === 'forget') this.model.flags.unsubscribeSucceeded = true;
-    if (guest.id === 'queue' && timedOut) this.model.flags.queueOverload = true;
+    scoreCase(this.model, guest, recipe.id, reply.tone);
 
     const message = recipeCorrect && replyCorrect
       ? guest.bestOutcome

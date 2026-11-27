@@ -1,0 +1,59 @@
+{
+  "gameType": "2D 敘事型喜劇與時間管理遊戲：《孟婆今天請假》",
+  "initialScope": "聚焦一段孟婆代班情境；從十位亡者中每局隨機選三位，製作荒唐孟婆湯、管理時間、選擇任務並處理投訴；情境包含拒絕死亡與搞錯死亡通知，並有一位特殊亡者彩蛋；至少 10 種結局，具體分支與觸發條件待確認。",
+  "currentStep": "STEP 05",
+  "currentQuestion": "核心循環原型已可完整遊玩；等待開發者試玩回饋與發布確認。",
+  "completedSteps": [
+    "STEP 00",
+    "STEP 01",
+    "STEP 02",
+    "STEP 03",
+    "STEP 04"
+  ],
+  "answers": {
+    "corePremise": "玩家扮演代班孟婆，為亡者製作各種荒唐的孟婆湯。笑點來自荒唐情境中的正常任務，以及意想不到的失敗或成功。",
+    "mechanics": [
+      "時間管理",
+      "選擇任務",
+      "處理投訴"
+    ],
+    "comedyScenarios": [
+      "有人拒絕死亡",
+      "有人搞錯自己的死亡通知"
+    ],
+    "possibleEnding": "孟婆可能被地府開除。",
+    "coreInteraction": "查看亡者需求，選擇孟婆湯配方，再選擇如何回應亡者。",
+    "roundStructure": "亡者總名單十位，每局隨機服務其中三位。",
+    "endingRequirement": "設計至少 10 種不同結局，並加入可選彩蛋，彩蛋可以取材自時事。",
+    "endingMethod": "結局依三位亡者的處理結果組合判定。",
+    "timeMechanic": "不設整局倒數；每位亡者各有耐心條。耐心耗盡會增加投訴或影響結局條件，但仍會完成三個案例。",
+    "recipeMechanic": "每位亡者有線索指向一款最佳配方；其他配方也會帶來不同喜劇後果與結局條件。",
+    "responseOptions": "每位亡者提供三個回應選項，影響該亡者服務結果、投訴或隱藏結局條件。",
+    "specialGhost": "亡者總名單中有一位特殊亡者彩蛋。",
+    "specialGhostChance": "每局 10% 機率以特殊亡者取代三人名單中的一位。",
+    "playerCharacter": "男性代班孟婆；職務稱呼不限性別，地府沒有性別歧視。",
+    "openingTutorial": "開場有代班報到玩笑與簡短教學，介紹服務排序、讀線索、選配方、選回應與三條耐心條。",
+    "taskSelection": "三位亡者同時出現在待辦清單；服務其中一人時，三位亡者的耐心條都會下降。耐心耗盡會增加投訴，但不會跳過亡者。",
+    "endingPriority": "結局判定順序：稽核員合格 → 自己喝湯 → 加班地獄 → 被開除(投訴≥3) → 成功請到假(全對且無投訴) → 年度好員工(配方全對且無投訴) → 罷喝(拒死者喝緩緩湯) → 交換亡籍/通知稽核 → 爆紅 → 動態定價 → 五星好評 → 客服中心。"
+  },
+  "pendingApprovals": [],
+  "approvedDocuments": [
+    "GDD.md"
+  ],
+  "generatedAssets": [],
+  "blockers": [],
+  "deferredTasks": [
+    "PixelFX 原始儲存庫尚未 clone；需要重新匯出圖集時再 clone。",
+    "重新開啟 Codex 專案以載入新安裝的 Skills。",
+    "GitHub Pages：deploy.yml 已建立；待開發者建立 GitHub repository 並同意推送。",
+    "美術：看錯通知的阿姨目前使用男性上班族圖（art08），待確認換圖或改角色設定。"
+  ],
+  "skillsValidation": {
+    "status": "installed_and_listed",
+    "agent": "Codex",
+    "count": 17,
+    "checkedAt": "2026-11-27",
+    "functionalWorkflowsRun": false
+  },
+  "status": "in_progress"
+}
