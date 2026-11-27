@@ -1,6 +1,6 @@
 import { ALL_GUESTS, ENDINGS, NORMAL_GUESTS, SPECIAL_GUEST } from './data.js';
 
-export const PATIENCE_DRAIN_PER_SECOND = 1.25;
+export const PATIENCE_DRAIN_PER_SECOND = 1.0;
 
 export function drawShift(random = Math.random) {
   const foundSpecial = random() < 0.1;

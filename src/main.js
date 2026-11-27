@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ENDINGS, RECIPES } from './data.js';
+import { ENDINGS, NEWS_TICKER, RECIPES } from './data.js';
 import { drawShift, PATIENCE_DRAIN_PER_SECOND, resolveEnding, scoreCase } from './logic.js';
 import './style.css';
 
@@ -159,7 +159,7 @@ const TUTORIAL = [
   {
     number: '01',
     title: '看線索，挑一碗合適的湯',
-    text: '每位亡者都有一款最適合的配方。線索藏在他們的需求裡；選錯也會有不同的荒唐後果。',
+    text: '接待前先讀他的生前檔案。每位亡者都有一款最適合的配方，線索藏在故事裡；選錯也會有不同的荒唐後果。',
     note: '配方不是單純對錯題，意外結果也可能改變結局。',
   },
   {
@@ -171,7 +171,7 @@ const TUTORIAL = [
   {
     number: '03',
     title: '配湯以後，還要好好回話',
-    text: '每位亡者都有三種回應方式。完成三份服務後，系統會綜合配方、回應、投訴和彩蛋條件揭曉結局。',
+    text: '每位亡者都有三種回應方式。湯和回話都選對，就能解鎖這位亡者的隱藏結尾；完成三份服務後揭曉今日結局。',
     note: '特殊亡者偶爾會來抽查——大概每十次值班遇到一次。',
   },
 ];
@@ -192,6 +192,8 @@ class MengpoScene extends Phaser.Scene {
     this.unlockedEndings = new Set();
     this.galleryReturnPhase = 'title';
     this.selectedEndingId = null;
+    this.tickerIndex = 0;
+    this.tickerText = null;
   }
 
   preload() {
@@ -202,7 +204,17 @@ class MengpoScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.night);
     this.unlockedEndings = this.readUnlockedEndings();
     this.input.keyboard.on('keydown', (event) => this.handleKey(event));
+    if (import.meta.env.DEV) window.__mengpo = this;
     this.scale.on('resize', () => this.renderScreen());
+    this.tickerIndex = Math.floor(Math.random() * NEWS_TICKER.length);
+    this.time.addEvent({
+      delay: 9000,
+      loop: true,
+      callback: () => {
+        this.tickerIndex = (this.tickerIndex + 1) % NEWS_TICKER.length;
+        if (this.tickerText?.active) this.tickerText.setText(`地府快訊｜${NEWS_TICKER[this.tickerIndex]}`);
+      },
+    });
     this.renderScreen();
   }
 
@@ -261,7 +273,7 @@ class MengpoScene extends Phaser.Scene {
 
     const shortcut = String(event.key).toLowerCase();
     this.choiceCallbacks[shortcut]?.();
-    if (event.code === 'Escape' && ['recipe', 'response'].includes(this.phase)) {
+    if (event.code === 'Escape' && ['story', 'recipe', 'response'].includes(this.phase)) {
       this.returnToQueue();
     }
   }
@@ -398,6 +410,7 @@ class MengpoScene extends Phaser.Scene {
 
     this.drawWorkroom();
     if (this.phase === 'queue') this.drawQueue();
+    if (this.phase === 'story') this.drawStory();
     if (this.phase === 'recipe') this.drawRecipe();
     if (this.phase === 'response') this.drawResponse();
     if (this.phase === 'caseResult') this.drawCaseResult();
@@ -623,6 +636,7 @@ class MengpoScene extends Phaser.Scene {
     this.button(1164, 38, 54, 42, '♨', () => this.clickPotEgg(), {
       fill: '#e7dcc7', textColor: COLORS.plum, size: 23,
     });
+    this.tickerText = this.text(430, 100, `地府快訊｜${NEWS_TICKER[this.tickerIndex]}`, 13, COLORS.rose, { bold: true });
     this.panel(52, 126, 356, 570, '#e7dcc7', '#c4b59c', 1);
     this.text(72, 143, '今日待辦　／　先服務誰？', 18, COLORS.ink, { bold: true });
     this.text(72, 171, '三條耐心同步下降', 13, COLORS.gray);
@@ -696,12 +710,39 @@ class MengpoScene extends Phaser.Scene {
     this.text(464, 212, '點左側亡者卡片的「接待」，開始處理他的湯單。', 17, COLORS.gray, { width: 700 });
     this.panel(464, 270, 720, 118, '#f0e6d4', '#d5c6ac', 1);
     this.text(490, 292, '代班小抄', 15, COLORS.plum, { bold: true });
-    this.text(490, 324, '找線索　→　選配方　→　選回應　→　看結果', 20, COLORS.ink, { bold: true });
+    this.text(490, 324, '看生前檔案　→　選配方　→　選回應　→　看結果', 20, COLORS.ink, { bold: true });
     this.text(464, 422, `目前投訴：${this.model.complaints}　　已完成：${this.model.caseResults.length} / 3`, 17, COLORS.ink, { bold: true });
     this.drawOutcomeSummary(464, 474, 720);
     this.panel(914, 550, 250, 128, '#f0e6d4', '#d5c6ac', 1);
     this.text(934, 562, '三位亡者候位中', 13, COLORS.plum, { bold: true });
     this.drawArt('art11', 1039, 622, 210, 102);
+  }
+
+  drawStory() {
+    const guest = this.activeGuest;
+    if (!guest) return;
+    this.text(462, 157, `生前檔案　／　${guest.name}`, 25, COLORS.ink, { bold: true, width: 560 });
+    this.text(464, 199, guest.role, 14, COLORS.plum, { bold: true });
+    const portraitKey = GUEST_ART[guest.id];
+    const storyWidth = portraitKey ? 510 : 660;
+    this.panel(462, 231, 724, 222, '#f0e6d4', '#d5c6ac', 1);
+    if (portraitKey) this.drawArtFrame(1031, 254, 136, 176, portraitKey, 122, 122);
+    let y = 252;
+    guest.story.forEach((line, index) => {
+      this.text(486, y, `0${index + 1}`, 14, COLORS.gold, { bold: true });
+      const body = this.text(522, y - 2, line, 17, COLORS.ink, { width: storyWidth - 40, wordWrap: { width: storyWidth - 40 }, lineSpacing: 4 });
+      y += body.height + 16;
+    });
+    this.panel(462, 474, 724, 84, COLORS.white, '#d5c6ac', 1);
+    this.text(486, 486, '亡者對你說', 12, COLORS.plum, { bold: true });
+    this.text(486, 508, `「${guest.quote}」`, 16, COLORS.ink, { width: 630, wordWrap: { width: 630 } });
+    this.button(463, 607, 360, 56, '聽完了，開始配湯　→', () => {
+      this.phase = 'recipe';
+      this.renderScreen();
+    }, { fill: COLORS.plum, textColor: COLORS.white, size: 19, key: 'Enter' });
+    this.button(1043, 160, 139, 34, '先放回待辦', () => this.returnToQueue(), {
+      fill: '#e7dcc7', textColor: COLORS.ink, size: 12,
+    });
   }
 
   drawRecipe() {
@@ -772,18 +813,28 @@ class MengpoScene extends Phaser.Scene {
   drawCaseResult() {
     const result = this.model.currentResult;
     if (!result) return;
+    const perfect = result.recipeCorrect && result.replyCorrect;
     this.text(462, 159, result.heading, 27, COLORS.ink, { bold: true });
-    this.panel(462, 220, 724, 223, result.recipeCorrect && result.replyCorrect ? '#e6efea' : '#f4e6d8', '#d5c6ac', 1);
+    this.panel(462, 220, 724, 222, perfect ? '#e6efea' : '#f4e6d8', '#d5c6ac', 1);
     const portraitKey = GUEST_ART[result.guest.id];
-    if (portraitKey) {
-      this.drawArtFrame(1031, 244, 136, 176, portraitKey, 122, 122);
+    if (portraitKey) this.drawArtFrame(1031, 236, 136, 176, portraitKey, 122, 122);
+    const bodyWidth = portraitKey ? 480 : 620;
+    this.text(493, 236, result.guest.name, 20, COLORS.ink, { bold: true });
+    let y = 272;
+    const outcome = this.text(493, y, result.message, 17, COLORS.ink, { width: bodyWidth, wordWrap: { width: bodyWidth }, lineSpacing: 5 });
+    y += outcome.height + 10;
+    const reaction = this.text(493, y, result.reaction, 15, COLORS.plum, { bold: true, width: bodyWidth, wordWrap: { width: bodyWidth }, lineSpacing: 4 });
+    y += reaction.height + 10;
+    this.text(493, Math.max(y, 410), `配方：${result.recipeName}　·　${result.recipeCorrect ? '線索吻合' : '意外發展'}　·　投訴箱 ${this.model.complaints}`, 13, this.model.complaints ? COLORS.red : COLORS.gray);
+
+    if (result.twist) {
+      this.panel(462, 456, 724, 134, '#fbf3df', COLORS.gold, 1.25);
+      this.text(486, 469, '✦ 隱藏結尾解鎖', 13, COLORS.plum, { bold: true });
+      this.text(486, 493, result.twist, 15, COLORS.ink, { width: 630, wordWrap: { width: 630 }, lineSpacing: 4 });
+    } else {
+      this.panel(462, 456, 724, 60, '#efe7d8', '#d5c6ac', 1);
+      this.text(486, 476, '這位亡者還有一段隱藏結尾：湯和回話都選對才會看到。', 14, COLORS.gray, { width: 676 });
     }
-    else this.text(493, 250, result.guest.icon, 46, COLORS.plum, { bold: true });
-    this.text(560, 246, result.guest.name, 20, COLORS.ink, { bold: true });
-    this.text(560, 283, result.message, 18, COLORS.ink, { width: portraitKey ? 420 : 575, wordWrap: { width: portraitKey ? 420 : 575 }, lineSpacing: 6 });
-    this.text(493, 377, `配方：${result.recipeName}　·　${result.recipeCorrect ? '線索吻合' : '意外發展'}`, 14, COLORS.gray);
-    this.text(493, 402, `投訴箱：${this.model.complaints}　·　其他亡者仍在等待`, 14, this.model.complaints ? COLORS.red : COLORS.mint);
-    this.drawOutcomeSummary(462, 473, 720);
     const allDone = this.model.guests.every((guest) => guest.status === 'served');
     this.button(463, 607, 360, 56, allDone ? '查看今日結局　→' : '回到待辦清單　→', () => {
       if (allDone) {
@@ -930,7 +981,7 @@ class MengpoScene extends Phaser.Scene {
     if (!guest || guest.status === 'served') return;
     guest.status = 'serving';
     this.activeGuestId = id;
-    this.phase = 'recipe';
+    this.phase = 'story';
     this.renderScreen();
   }
 
@@ -950,9 +1001,9 @@ class MengpoScene extends Phaser.Scene {
 
     scoreCase(this.model, guest, recipe.id, reply.tone);
 
-    const message = recipeCorrect && replyCorrect
-      ? guest.bestOutcome
-      : guest.oddOutcome;
+    const message = guest.outcomes[recipe.id];
+    const reaction = guest.reactions[reply.tone];
+    const twist = recipeCorrect && replyCorrect ? guest.twist : null;
     guest.status = 'served';
     guest.recipeId = recipe.id;
     guest.replyTone = reply.tone;
@@ -967,6 +1018,8 @@ class MengpoScene extends Phaser.Scene {
       replyTone: reply.tone,
       timedOut,
       message,
+      reaction,
+      twist,
       heading: recipeCorrect && replyCorrect ? '這位亡者已順利送達' : '服務完成，但結果有點出乎意料',
     };
     this.model.caseResults.push(result);
