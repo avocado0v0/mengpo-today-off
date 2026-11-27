@@ -7,32 +7,98 @@ const WIDTH = 1280;
 const HEIGHT = 800;
 const FONT = '"Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif';
 const COLORS = {
-  night: '#171722',
-  plum: '#673347',
-  rose: '#a6485d',
-  ink: '#2a2835',
+  night: '#37363f',
+  plum: '#795665',
+  rose: '#b98483',
+  ink: '#3d3b42',
   paper: '#f2ead9',
   paperDeep: '#e4d8c1',
-  white: '#fffaf1',
-  gold: '#d59c4f',
-  mint: '#678d78',
-  red: '#a5424b',
-  gray: '#77727b',
-  line: '#b7aa94',
+  white: '#fbf7ec',
+  gold: '#c5a477',
+  mint: '#84998b',
+  red: '#ad797c',
+  gray: '#77747b',
+  line: '#c8bda8',
 };
 
 const INTRO = [
   {
-    speaker: '地府人事小吏',
-    text: '報到？孟婆本人今天請假，怎麼是你來代班？',
+    scene: '奈何橋頭，孟婆湯攤位',
+    visual: 'bridge',
+    speaker: '旁白',
+    text: '地府，奈何橋頭。\n每天有三萬七千位亡者在這裡排隊，\n等一碗湯，忘掉前世，重新投胎。\n這份工作，孟婆已經做了兩千年，\n從來沒有請過假。\n直到今天。',
   },
   {
-    speaker: '代班孟婆',
-    text: '孟婆怎麼就不能是男的？地府可沒有性別歧視啊！',
+    scene: '攤位上的便條紙',
+    visual: 'note',
+    speaker: '孟婆留下的便條',
+    text: '各位同仁好，我去陽間參加我外甥的\n婚禮，三天。\n湯鍋在左邊，鍋鏟在右邊，不要弄混。\n配方在抽屜第二格，千萬不要自己亂加料。\n——孟婆\n\nP.S. 冰箱裡的綠豆湯是我的，\n誰喝誰投胎。',
   },
   {
-    speaker: '地府人事小吏',
-    text: '好，櫃檯交給你。三位亡者在等候，記得先看線索再下湯。',
+    scene: '人事部緊急徵調',
+    visual: 'roster',
+    speaker: '旁白',
+    text: '於是，閻王在人事部門翻了三小時通訊錄，\n最後點到了你。',
+  },
+  {
+    scene: '閻王辦公室',
+    visual: 'king',
+    speaker: '閻王',
+    text: '你就是新來的代班？很好。就你了。',
+  },
+  {
+    scene: '任用資格確認',
+    visual: 'kingPhone',
+    speaker: '你',
+    text: '等一下，我是男的，孟婆不是應該是……',
+  },
+  {
+    scene: '閻王終於抬頭',
+    visual: 'kingLook',
+    speaker: '閻王',
+    text: '（閻王終於抬頭，面無表情。）\n孟婆怎麼就不能是男的？',
+  },
+  {
+    scene: '職稱，不是性別',
+    visual: 'bull',
+    speaker: '你／閻王／牛頭',
+    text: '你：可是「婆」這個字……\n閻王：「婆」是職稱，不是性別。我們地府很進步，性別平等，只歧視壽命太短的。\n牛頭（默默舉手）：報告，我也是請領過「牛頭女士」稱謂的。',
+  },
+  {
+    scene: '人事流程：立即上工',
+    visual: 'apron',
+    speaker: '閻王',
+    text: '少廢話。圍裙穿上。',
+  },
+  {
+    scene: '今日孟婆，強制上任',
+    visual: 'apronHero',
+    speaker: '旁白',
+    text: '你被強行套上一件印著「今日孟婆」的粉紅色圍裙。\n它還附有一張不能退貨的人事簽收單。',
+  },
+  {
+    scene: '代班守則（一）',
+    visual: 'rules',
+    speaker: '閻王',
+    text: '規則很簡單，三條。\n一、每位亡者都要喝湯；不喝不能投胎，不能投胎就會堵在橋上。',
+  },
+  {
+    scene: '代班守則（二）',
+    visual: 'rules',
+    speaker: '閻王',
+    text: '二、不准洩漏前世記憶，否則業績扣光。\n三、客訴率超過 30% 的話……',
+  },
+  {
+    scene: '績效面談通知',
+    visual: 'review',
+    speaker: '閻王',
+    text: '（閻王把手機螢幕轉過來，上面跳出血紅色的「績效面談」通知。）\n……你會親自體驗一下，喝湯是什麼感覺。',
+  },
+  {
+    scene: '第一位亡者已經排到櫃檯',
+    visual: 'firstGuest',
+    speaker: '亡者 A',
+    text: '（遠處傳來吵鬧聲。亡者 A 拍桌。）\n我還沒死！我要找你們主管！！\n\n旁白：第一天上班，開始。',
   },
 ];
 
@@ -198,7 +264,7 @@ class MengpoScene extends Phaser.Scene {
   }
 
   drawTitle() {
-    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x171722).setOrigin(0, 0);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
     this.drawBackdropSymbols();
     this.panel(108, 82, 1064, 638, COLORS.paper, COLORS.gold, 3);
     this.text(160, 122, '地府人事部　／　臨時櫃檯', 17, COLORS.plum, { bold: true });
@@ -208,8 +274,8 @@ class MengpoScene extends Phaser.Scene {
     this.panel(166, 385, 524, 106, '#e7dcc7', '#c4b59c', 1);
     this.text(192, 404, '本日工作內容', 16, COLORS.plum, { bold: true });
     this.text(192, 438, '挑配方　・　回應亡者　・　保住飯碗', 22, COLORS.ink, { bold: true });
-    this.drawGhostStamp(928, 358, 124);
-    this.text(870, 477, '地府臨時人員', 16, COLORS.gray, { align: 'center', width: 230 });
+    this.drawIntroIllustration('bridge');
+    this.text(870, 665, '奈何橋頭　·　地府臨時人員', 16, COLORS.gray, { align: 'center', width: 270 });
     this.button(164, 545, 380, 66, '開始代班　→', () => this.startIntro(), {
       fill: COLORS.plum,
       textColor: COLORS.white,
@@ -221,30 +287,186 @@ class MengpoScene extends Phaser.Scene {
   }
 
   drawIntro() {
-    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x171722).setOrigin(0, 0);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
     this.drawBackdropSymbols();
-    this.panel(110, 76, 1060, 650, COLORS.paper, COLORS.gold, 3);
-    this.text(160, 120, '地府人事部　／　代班報到', 17, COLORS.plum, { bold: true });
-    this.drawGhostStamp(1040, 172, 62);
-    this.text(170, 227, INTRO[this.introIndex].speaker, 18, COLORS.plum, { bold: true });
-    this.panel(160, 275, 950, 202, '#fffaf1', '#c4b59c', 2);
-    this.text(205, 318, `「${INTRO[this.introIndex].text}」`, 30, COLORS.ink, {
-      width: 850,
-      wordWrap: { width: 850 },
-      lineSpacing: 16,
+    const beat = INTRO[this.introIndex];
+    this.panel(58, 42, 1164, 716, COLORS.paper, null, 0);
+    this.add.rectangle(86, 70, 8, 52, this.toNumber(COLORS.rose)).setOrigin(0, 0);
+    this.text(112, 70, '奈何橋頭　／　臨時代班紀事', 17, COLORS.plum, { bold: true });
+    this.text(112, 113, beat.scene, 33, COLORS.ink, { bold: true, width: 620, wordWrap: { width: 620 } });
+
+    this.panel(96, 174, 650, 446, COLORS.white, null, 0);
+    this.add.ellipse(119, 198, 30, 30, 0xe8d8bb);
+    this.text(103, 183, '陰', 15, COLORS.plum, { bold: true, width: 32, align: 'center' });
+    this.text(151, 185, beat.speaker, 17, COLORS.rose, { bold: true, width: 540 });
+    this.text(132, 232, beat.text, 23, COLORS.ink, {
+      width: 578,
+      wordWrap: { width: 578 },
+      lineSpacing: 9,
     });
-    this.text(165, 521, `報到劇情　${this.introIndex + 1} / ${INTRO.length}`, 15, COLORS.gray);
-    this.button(164, 583, 360, 62, this.introIndex === INTRO.length - 1 ? '領取三張服務單　→' : '繼續　→', () => this.advanceIntro(), {
+
+    this.panel(786, 142, 380, 478, '#e8deca', null, 0);
+    this.drawIntroIllustration(beat.visual);
+    this.text(112, 652, `代班劇情　${String(this.introIndex + 1).padStart(2, '0')} / ${INTRO.length}`, 14, COLORS.gray);
+    this.button(820, 660, 346, 60, this.introIndex === INTRO.length - 1 ? '開始營業　→' : '下一幕　→', () => this.advanceIntro(), {
       fill: COLORS.plum,
       textColor: COLORS.white,
       size: 21,
       key: 'Enter',
     });
+    this.text(112, 695, 'Enter 繼續　·　現在離開還來得及嗎？', 13, COLORS.gray);
+  }
+
+  drawIntroIllustration(kind) {
+    const centerX = 976;
+    const centerY = 370;
+    const c = (x, y, radius, color, alpha = 1) => this.add.circle(x, y, radius, this.toNumber(color), alpha);
+    const r = (x, y, width, height, color, angle = 0) => this.add.rectangle(x, y, width, height, this.toNumber(color)).setAngle(angle);
+    const p = (points, color) => {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(this.toNumber(color), 1);
+      graphics.fillPoints(points.map(([x, y]) => ({ x, y })), true);
+    };
+
+    // Cut-paper sun and cloud shapes are reused as a quiet frame across every story beat.
+    c(1082, 206, 68, '#d6c5aa');
+    c(1082, 206, 48, '#e8d5b2');
+    c(858, 550, 44, '#d5cbb8');
+    c(1126, 556, 54, '#d8cbb5');
+    r(976, 570, 280, 34, '#c6b9a1', -2);
+
+    if (kind === 'bridge' || kind === 'firstGuest') {
+      p([[806, 426], [877, 335], [951, 405], [1022, 325], [1146, 427]], '#b5a993');
+      p([[786, 448], [1165, 448], [1165, 494], [786, 494]], '#9a9b89');
+      for (let i = 0; i < 6; i += 1) r(828 + i * 58, 464, 48, 8, '#d8c5a7', -2);
+      // Lantern, loose sign, steam and the unattended soup counter.
+      r(850, 278, 10, 102, '#705b61');
+      r(850, 257, 68, 56, '#a99586', -3);
+      r(850, 257, 4, 67, '#d4c09d', -3);
+      r(850, 257, 68, 4, '#d4c09d', -3);
+      const lanternGlow = c(850, 285, 22, '#b4b997', 0.42);
+      this.tweens.add({ targets: lanternGlow, alpha: 0.15, duration: 720, yoyo: true, repeat: -1 });
+      r(933, 350, 88, 45, '#c8b89e', -5);
+      r(933, 350, 79, 37, '#f2ead9', -5);
+      this.text(892, 338, '營業中', 13, COLORS.plum, { bold: true, width: 82, align: 'center' }).setAngle(-5);
+      r(1094, 413, 104, 18, '#8a6a66', -1);
+      r(1094, 374, 20, 63, '#8a6a66');
+      c(1095, 373, 45, '#a98776');
+      c(1095, 366, 37, '#c6aa8b');
+      r(1095, 343, 75, 9, '#947970');
+      c(1077, 337, 14, '#f0e4cd');
+      c(1105, 326, 10, '#f0e4cd');
+      if (kind === 'firstGuest') {
+        c(1001, 391, 27, '#eee3cb');
+        r(1001, 436, 46, 46, '#eee3cb');
+        c(991, 386, 3, '#62535b');
+        c(1011, 386, 3, '#62535b');
+        p([[970, 413], [938, 395], [939, 389], [978, 404]], '#eee3cb');
+        p([[1024, 413], [1058, 394], [1061, 401], [1031, 425]], '#eee3cb');
+        r(1000, 460, 44, 11, '#c39086');
+      }
+    } else if (kind === 'note') {
+      r(976, 368, 206, 286, '#c9bca5', -2);
+      r(972, 362, 206, 286, '#f8f0df', -2);
+      c(973, 227, 13, COLORS.rose);
+      for (let i = 0; i < 7; i += 1) r(971, 282 + i * 35, i === 0 ? 134 : 154, 5, i === 0 ? '#8b6a70' : '#d7cbb6', -2);
+      c(1032, 551, 35, '#c6b99f');
+      c(1032, 551, 26, '#a3ad91');
+      c(1090, 551, 35, '#c6b99f');
+      c(1090, 551, 26, '#a3ad91');
+    } else if (kind === 'roster') {
+      for (let i = 0; i < 3; i += 1) {
+        r(950 + i * 34, 353 - i * 10, 192, 254, ['#d8ccb6', '#e7dcc7', '#f8f0df'][i], (i - 1) * 3);
+        for (let j = 0; j < 4; j += 1) r(945 + i * 34, 276 + j * 35 - i * 10, 106, 5, '#c3b59f', (i - 1) * 3);
+      }
+      c(1046, 466, 45, '#b8c0b2');
+      c(1046, 466, 30, '#859485');
+      this.drawGhostStamp(1046, 455, 36);
+    } else if (kind === 'king' || kind === 'kingPhone' || kind === 'kingLook' || kind === 'review') {
+      this.drawKingFigure(centerX, centerY + 18, ['king', 'kingPhone', 'review'].includes(kind) ? 'phone' : kind);
+      if (kind === 'review') {
+        r(1070, 500, 132, 190, '#61565f', -5);
+        r(1070, 500, 116, 166, '#f3e9d7', -5);
+        c(1110, 474, 30, '#b77779');
+        r(1110, 472, 38, 5, '#fff4e5');
+      }
+    } else if (kind === 'bull') {
+      this.drawKingFigure(883, 374, 'look');
+      this.drawBullFigure(1087, 420, true);
+      c(1087, 238, 22, '#e9d8bc');
+      this.text(1076, 222, '？', 23, COLORS.plum, { bold: true, width: 24, align: 'center' });
+    } else if (kind === 'apron' || kind === 'apronHero') {
+      this.drawKingFigure(864, 391, 'look');
+      this.drawBullFigure(1098, 414, false);
+      this.drawSubstituteFigure(1078, 449);
+    } else if (kind === 'rules') {
+      for (let i = 0; i < 3; i += 1) {
+        const y = 270 + i * 120;
+        r(981, y, 246, 82, ['#eee1c9', '#e5dac5', '#ead9c7'][i], i % 2 ? 2 : -2);
+        c(899, y, 27, ['#b0b49d', '#c9a879', '#b98984'][i]);
+        this.text(887, y - 16, `${i + 1}`, 22, COLORS.white, { bold: true, width: 24, align: 'center' });
+        r(990, y - 14, 128, 5, '#b8aa94', -2);
+        r(990, y + 5, 174, 5, '#d0c4b0', 1);
+        r(990, y + 23, 148, 5, '#d0c4b0', -1);
+      }
+    }
+  }
+
+  drawKingFigure(x, y, pose = 'look') {
+    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
+    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
+    r(x, y + 100, 184, 170, '#8c6b78');
+    r(x, y + 66, 130, 88, '#d4bd9e');
+    c(x, y - 18, 77, '#cfaa91');
+    c(x, y - 31, 76, '#51444e');
+    c(x, y - 8, 56, '#cfaa91');
+    r(x, y - 73, 126, 25, '#51444e');
+    r(x - 43, y - 95, 13, 28, '#c3a578', -9);
+    r(x, y - 101, 13, 32, '#c3a578');
+    r(x + 43, y - 95, 13, 28, '#c3a578', 9);
+    c(x - 21, y - 7, 5, '#53464d');
+    c(x + 21, y - 7, 5, '#53464d');
+    r(x, y + 13, 23, 4, '#9b6b70');
+    if (pose === 'phone' || pose === 'review' || pose === 'kingPhone') {
+      r(x + 83, y + 51, 44, 72, '#69616a', -8);
+      r(x + 84, y + 49, 34, 58, '#e8dfce', -8);
+      c(x + 88, y + 88, 5, '#bd777c');
+    }
+  }
+
+  drawBullFigure(x, y, handRaised = false) {
+    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
+    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
+    r(x, y + 96, 136, 150, '#879284');
+    c(x, y - 2, 70, '#b5aa91');
+    c(x, y - 17, 62, '#cfc1a5');
+    this.add.ellipse(x - 57, y - 60, 52, 28, this.toNumber('#ded0b5')).setAngle(-32);
+    this.add.ellipse(x + 57, y - 60, 52, 28, this.toNumber('#ded0b5')).setAngle(32);
+    c(x - 20, y - 14, 5, '#564b4e');
+    c(x + 20, y - 14, 5, '#564b4e');
+    this.add.ellipse(x, y + 14, 32, 20, this.toNumber('#9c857c'));
+    if (handRaised) r(x + 72, y + 16, 28, 95, '#879284', -31);
+  }
+
+  drawSubstituteFigure(x, y) {
+    const c = (cx, cy, radius, color) => this.add.circle(cx, cy, radius, this.toNumber(color));
+    const r = (rx, ry, width, height, color, angle = 0) => this.add.rectangle(rx, ry, width, height, this.toNumber(color)).setAngle(angle);
+    r(x, y + 66, 150, 178, '#a98982');
+    c(x, y - 28, 70, '#d8b69b');
+    r(x, y - 83, 119, 34, '#574d59');
+    c(x - 19, y - 20, 5, '#574d59');
+    c(x + 19, y - 20, 5, '#574d59');
+    r(x, y + 79, 112, 101, '#c88f9a', -1);
+    // Oversized pale apron panel and a tiny “today Meng Po” badge.
+    r(x, y + 71, 84, 82, '#f0d7d1');
+    this.text(x - 34, y + 56, '今日\n孟婆', 15, '#785665', { bold: true, width: 70, align: 'center', lineSpacing: 1 });
+    r(x - 75, y + 60, 29, 91, '#d8b69b', -19);
+    r(x + 75, y + 60, 29, 91, '#d8b69b', 19);
   }
 
   drawTutorial() {
     const page = TUTORIAL[this.tutorialIndex];
-    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x171722).setOrigin(0, 0);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
     this.drawBackdropSymbols();
     this.panel(110, 76, 1060, 650, COLORS.paper, COLORS.gold, 3);
     this.text(160, 120, '代班快速上手', 17, COLORS.plum, { bold: true });
@@ -273,8 +495,9 @@ class MengpoScene extends Phaser.Scene {
   }
 
   drawWorkroom() {
-    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x171722).setOrigin(0, 0);
-    this.panel(28, 20, 1224, 760, COLORS.paper, COLORS.gold, 2);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, this.toNumber(COLORS.night)).setOrigin(0, 0);
+    this.drawPaperGrain();
+    this.panel(28, 20, 1224, 760, COLORS.paper, null, 0);
     this.text(58, 39, '地府人事部　／　臨時櫃檯', 14, COLORS.plum, { bold: true });
     this.text(56, 61, '孟婆今天請假', 28, COLORS.ink, { bold: true });
     this.text(665, 57, `值班 ${String(this.roundNumber).padStart(2, '0')}　·　亡者 ${this.model.caseResults.length}/3`, 16, COLORS.gray, {
@@ -483,11 +706,27 @@ class MengpoScene extends Phaser.Scene {
 
   drawBackdropSymbols() {
     const graphics = this.add.graphics();
-    graphics.lineStyle(1, 0x373441, 0.75);
-    for (let x = 18; x < WIDTH; x += 40) graphics.lineBetween(x, 0, x, HEIGHT);
-    for (let y = 20; y < HEIGHT; y += 40) graphics.lineBetween(0, y, WIDTH, y);
-    this.add.circle(1040, 223, 143, 0x272532, 0.54);
-    this.add.circle(1040, 223, 110, 0x171722, 0.88);
+    graphics.fillStyle(this.toNumber('#81706f'), 0.17);
+    graphics.fillPoints([{ x: 0, y: 0 }, { x: 460, y: 0 }, { x: 0, y: 280 }], true);
+    graphics.fillStyle(this.toNumber('#9f8e78'), 0.13);
+    graphics.fillPoints([{ x: 1280, y: 0 }, { x: 1280, y: 320 }, { x: 1000, y: 0 }], true);
+    graphics.fillStyle(this.toNumber('#a17b7d'), 0.14);
+    graphics.fillPoints([{ x: 0, y: 800 }, { x: 0, y: 590 }, { x: 360, y: 800 }], true);
+    graphics.fillStyle(this.toNumber('#8f9587'), 0.12);
+    graphics.fillPoints([{ x: 1280, y: 800 }, { x: 950, y: 800 }, { x: 1280, y: 580 }], true);
+    this.add.ellipse(1040, 223, 286, 256, this.toNumber('#aa927e'), 0.16);
+    this.add.ellipse(1040, 223, 220, 194, this.toNumber('#d2bd9f'), 0.10);
+    this.drawPaperGrain();
+  }
+
+  drawPaperGrain() {
+    const grain = this.add.graphics();
+    grain.fillStyle(this.toNumber('#f0e5ce'), 0.045);
+    for (let i = 0; i < 115; i += 1) {
+      const x = (i * 137 + 43) % WIDTH;
+      const y = (i * 83 + 29) % HEIGHT;
+      grain.fillCircle(x, y, i % 9 === 0 ? 2 : 1);
+    }
   }
 
   drawGhostStamp(x, y, radius) {
@@ -505,9 +744,14 @@ class MengpoScene extends Phaser.Scene {
   }
 
   panel(x, y, width, height, fill = COLORS.white, stroke = null, lineWidth = 1) {
-    this.add.rectangle(x, y, width, height, this.toNumber(fill)).setOrigin(0, 0);
-    if (stroke) {
-      this.add.graphics().lineStyle(lineWidth, this.toNumber(stroke), 1).strokeRect(x, y, width, height);
+    const graphics = this.add.graphics();
+    graphics.fillStyle(this.toNumber('#675b5e'), 0.09);
+    graphics.fillRoundedRect(x + 4, y + 6, width, height, 12);
+    graphics.fillStyle(this.toNumber(fill), 1);
+    graphics.fillRoundedRect(x, y, width, height, 12);
+    if (stroke && lineWidth > 0) {
+      graphics.lineStyle(Math.min(lineWidth, 1.25), this.toNumber(stroke), 0.56);
+      graphics.strokeRoundedRect(x, y, width, height, 12);
     }
   }
 
